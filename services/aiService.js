@@ -1,7 +1,7 @@
 const axios = require("axios");
 const fs = require("fs");
 const path = require("path");
-require("dotenv").config();
+//require("dotenv").config();
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
