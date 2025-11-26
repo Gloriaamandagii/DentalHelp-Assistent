@@ -5,7 +5,7 @@ require("dotenv").config();
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
-// cache the base prompt so we don't read the file on every request
+// cache the base prompt so we don't read the file every request
 let cachedBasePrompt = null;
 
 async function generateReplyFromGemini(
@@ -19,10 +19,10 @@ async function generateReplyFromGemini(
 
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
 
-  // baca prompt dasar bila tersedia. Jika file kosong gunakan fallback.
+  // baca base prompt pertama kali saja
   let basePrompt = "";
   const defaultPrompt =
-    "Kamu adalah asisten yang membantu menjawab pertanyaan terkait penanganan pertama pada sakit gigi dengan bahasa yang sopan dan jelas.";
+    "Kamu adalah DentalHelp-Assistant, seorang asisten dokter gigi yang sopan, jelas, dan membantu, khususnya dalam penanganan awal masalah gigi.";
 
   if (cachedBasePrompt === null) {
     try {
@@ -37,15 +37,24 @@ async function generateReplyFromGemini(
 
   basePrompt = cachedBasePrompt;
 
-  // Perbaikan string
+  // Nama pengirim (optional)
   const nameContext =
     senderName && senderName !== "-" ? `Nama pengirim: ${senderName}\n` : "";
 
+  // prompt final
   const systemPrompt = `${basePrompt}
 ${nameContext}Pesan warga: "${userMessage}"`;
 
+  // === PERBAIKAN PALING PENTING ===
+  // Gemini *WAJIB* pakai role: "user"
   const requestBody = {
-    contents: [{ parts: [{ text: systemPrompt }] }],
+    contents: [
+      {
+        role: "user",
+        parts: [{ text: systemPrompt }],
+      },
+    ],
+
     safetySettings: [
       {
         category: "HARM_CATEGORY_HARASSMENT",
@@ -58,59 +67,17 @@ ${nameContext}Pesan warga: "${userMessage}"`;
     ],
   };
 
-  // retry helper
-  async function postWithRetry(url, body, opts = {}, attempts = 3) {
-    let lastErr = null;
-    for (let i = 1; i <= attempts; i++) {
-      try {
-        if (i > 1) console.log(`[GEMINI RETRY] attempt ${i} to ${url}`);
-        const res = await axios.post(url, body, opts);
-        return res;
-      } catch (err) {
-        lastErr = err;
-        const code = err.response?.status;
-        console.warn(
-          `[GEMINI] request failed (attempt ${i}) status=${code} message=${err.message}`
-        );
-
-        // 4xx selain 429 jangan retry
-        if (code && code >= 400 && code < 500 && code !== 429) {
-          throw err;
-        }
-
-        const delay = 300 * Math.pow(2, i - 1);
-        await new Promise((r) => setTimeout(r, delay));
-      }
-    }
-    throw lastErr;
-  }
-
   try {
-    const response = await postWithRetry(
-      endpoint,
-      requestBody,
-      { headers: { "Content-Type": "application/json" } },
-      3
-    );
+    const response = await axios.post(endpoint, requestBody);
 
-    const result = response.data;
-    const aiReply =
-      result.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
+    const reply =
+      response.data?.candidates?.[0]?.content?.parts?.[0]?.text ||
+      "Tidak ada respons dari model.";
 
-    return (
-      aiReply ||
-      "Terima kasih. Mohon jelaskan lebih detail pertanyaan Anda sehingga kami dapat membantu."
-    );
-  } catch (error) {
-    console.error("[GEMINI API ERROR] message=", error.message);
-    if (error.response) {
-      console.error("[GEMINI API ERROR] status=", error.response.status);
-      console.error(
-        "[GEMINI API ERROR] data=",
-        JSON.stringify(error.response.data || {}, null, 2)
-      );
-    }
-    return "Mohon maaf, layanan AI saat ini tidak tersedia. Silakan coba beberapa saat lagi.";
+    return reply;
+  } catch (err) {
+    console.error("Gemini API Error:", err.response?.data || err.message);
+    return "Mohon maaf, layanan AI saat ini tidak tersedia.";
   }
 }
 
