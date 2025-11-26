@@ -29,12 +29,10 @@ const handleIncomingMessage = async (req, res) => {
       req.body && (req.body.pesan || req.body.message || req.body.text || null);
 
     if (!number || !message) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "Missing required fields (need number and message)",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "Missing required fields (need number and message)",
+      });
     }
 
     // Normalize number to Indonesia style '62...'
@@ -72,13 +70,11 @@ const handleIncomingMessage = async (req, res) => {
       "[WEBHOOK] Error:",
       error && error.message ? error.message : error
     );
-    return res
-      .status(500)
-      .json({
-        success: false,
-        message: "Internal server error",
-        error: error && error.message ? error.message : String(error),
-      });
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error && error.message ? error.message : String(error),
+    });
   }
 };
 
