@@ -15,6 +15,8 @@ async function generateReplyFromGemini(
   if (!GEMINI_API_KEY) {
     return "API key belum dikonfigurasi. Silakan set environment variable GEMINI_API_KEY.";
   }
+  //konfigurasi endpoint Gemini API   
+  //unutk ambil model yang mana
 
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
 
